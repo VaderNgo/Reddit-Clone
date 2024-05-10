@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String           @id @default(uuid())
+  username                String           @unique
+  hashedPassword          String
+  email                   String           @unique
+  emailVerified           Boolean          @default(false)
+  avatarUrl               String           @default("https://placehold.co/100x100/orange/white?text=avatar")
+  status                  Status           @default(STANDARD)
+  role                    UserRole         @default(USER)
+  gender                  Gender           @default(Unknown)
+  registeredAt            DateTime         @default(now())
+  updateAt                DateTime         @updatedAt
+  communitiesOwned        Community[]
+  emailTokens             EmailToken[]
+  communitiesParticipated User_Community[]
+  Post                    Post[]
+  PostVote                PostVote[]
+  Comment                 Comment[]
+  CommentVote             CommentVote[]
+}
+
+model EmailToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expireAt  DateTime
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id])
+}
+
+model Community {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  ownerId     String
+  description String
+  logoUrl     String           @default("https://placehold.co/100x100/pink/white?text=logo")
+  bannerUrl   String           @default("https://placehold.co/100x100/pink/white?text=banner")
+  status      Status           @default(STANDARD)
+  memberCount Int              @default(0)
+  deleted     Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updateAt    DateTime         @updatedAt
+  User        User             @relation(fields: [ownerId], references: [id])
+  user        User_Community[]
+  Post        Post[]
+}
+
+model User_Community {
+  userId        String
+  communityId   String
+  communityRole CommunityRole @default(MEMBER)
+  banned        Boolean       @default(false)
+  community     Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, communityId])
+}
+
+model Post {
+  id            String     @id @default(uuid())
+  type          PostType
+  title         String
+  content       String
+  mediaUrls     String[]
+  author        User       @relation(fields: [authorId], references: [id])
+  authorId      String
+  community     Community  @relation(fields: [communityName], references: [name])
+  communityName String
+  deleted       Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  score         Int        @default(0)
+  vote          PostVote[]
+  comments      Comment[]
+}
+
+model PostVote {
+  user   User      @relation(fields: [userId], references: [id])
+  userId String
+  post   Post      @relation(fields: [postId], references: [id])
+  postId String
+  state  VoteState
+
+  @@id([userId, postId])
+}
+
+model Comment {
+  id          String        @id @default(uuid())
+  content     String
+  author      User          @relation(fields: [authorId], references: [id])
+  authorId    String
+  parent      Comment?      @relation("Comment_Relations", fields: [parentId], references: [id])
+  parentId    String?
+  post        Post?         @relation(fields: [postId], references: [id])
+  postId      String?
+  deleted     Boolean       @default(false)
+  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime      @default(now())
+  children    Comment[]     @relation("Comment_Relations")
+  score       Int           @default(0)
+  CommentVote CommentVote[]
+}
+
+model CommentVote {
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+  comment   Comment   @relation(fields: [commentId], references: [id])
+  commentId String
+  state     VoteState
+
+  @@id([userId, commentId])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum CommunityRole {
+  MEMBER
+  MODERATOR
+}
+
+enum Status {
+  STANDARD
+  SUSPENDED
+}
+
+enum PostType {
+  TEXT
+  LINK
+  MEDIA
+}
+
+enum VoteState {
+  UPVOTE
+  DOWNVOTE
+}
+
+enum Gender {
+  Male
+  Female
+  Unknown
+}
